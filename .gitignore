@@ -1,0 +1,29 @@
+# pyCharm configuration files
+.idea
+
+# vim swp file
+*.swp
+
+# python virtual environment
+.virtenv
+virtenv
+venv
+
+# python compiled files
+*.pyc
+*.pyo
+
+# tox working directory
+.tox
+
+# mac cache files
+.DS_Store
+
+MANIFEST
+*.log
+
+# Tempory file from tests
+tmp/*
+
+# coverage
+.coverage
