@@ -70,7 +70,14 @@ class ImageAugment:
         rotated_image = cv2.warpAffine(image_mat, M, (nW, nH))
         return  rotated_image
 
-
+@fn_timer
+def index_images(gallery_database_path, index_file, uniform_size=(224, 224, 3)):
+    # API: get one query result
+    gallery_index_path = index.index_images(
+        gallery_database_path=gallery_database_path,
+        index_file=index_file,
+        uniform_size=uniform_size)
+    return gallery_index_path
 
 @fn_timer
 def query_one_cnn_retrieval(query_path, index_file_path, uniform_size=(224, 224, 3)):
@@ -78,27 +85,67 @@ def query_one_cnn_retrieval(query_path, index_file_path, uniform_size=(224, 224,
     results = query.query(query_image_path=query_path,
                           index_file=index_file_path,
                           uniform_size=uniform_size,
-                          limit=5)
+                          limit=10)
     return results
 
 
 @fn_timer
-def retrieval_statistics(gallery_index_path, query_dataset_path,  uniform_size=(224, 224, 3)):
+def retrieval_statistics(gallery_index_path, truth_record_path,  uniform_size=(224, 224, 3)):
     accuracy = {}
 
     accuracy['first_right'] = 0
     accuracy['other_right'] = 0
     accuracy['wrong'] = 0
 
-    query_name_list = os.listdir(query_dataset_path)
+    truth = {}
+    with open(truth_record_path, 'r') as f:
+        for line in f:
+            line_record = line.split()
+            if '\n' in line_record[-1]:
+                line_record[-1] = line_record[-1].split("\n")[0]
+            truth[line_record[0]] = line_record[1]
+    query_img_path= truth.keys()
 
-    for query_name in query_name_list:
-        query_path = query_dataset_path + "/" + query_name
-        results = query.query(query_path, gallery_index_path, uniform_size, limit=5)
+    for query_path in query_img_path:
+        # results = query.query(query_path, gallery_index_path, uniform_size, limit=10)
+        print('query_path', query_path)
+        results = query_one_cnn_retrieval(
+            query_path=query_path,
+            index_file_path=gallery_index_path,
+            uniform_size=uniform_size)
+        print("results", results)
 
-        if results[0] == query_name:
+        if results[0] == truth[query_path]:
             accuracy['first_right'] += 1
-        elif query_name in results:
+        elif truth[query_path] in results:
+            accuracy['other_right'] += 1
+        else:
+            accuracy['wrong'] += 1
+    return accuracy
+
+
+@fn_timer
+def challenge_retrieval_statistics(gallery_index_path, challenging_database_path,  uniform_size=(224, 224, 3)):
+    accuracy = {}
+
+    accuracy['first_right'] = 0
+    accuracy['other_right'] = 0
+    accuracy['wrong'] = 0
+    query_imgs = os.listdir(challenging_database_path)
+
+    print("quert_img_path", query_imgs)
+    for query_img_name in query_imgs:
+        # results = query.query(query_path, gallery_index_path, uniform_size, limit=10)
+        query_path = os.path.join(challenging_database_path, query_img_name)
+        results = query_one_cnn_retrieval(
+            query_path=query_path,
+            index_file_path=gallery_index_path,
+            uniform_size=uniform_size)
+        print("results", results)
+
+        if results[0] == query_img_name:
+            accuracy['first_right'] += 1
+        elif query_img_name in results:
             accuracy['other_right'] += 1
         else:
             accuracy['wrong'] += 1
@@ -107,27 +154,32 @@ def retrieval_statistics(gallery_index_path, query_dataset_path,  uniform_size=(
 
 if __name__ == '__main__':
 
-    gallery_database_path = '${your_gallery_datase_path}'
-    query_path = '${your_query_image_path}'
+    gallery_database_path = '/home/yusun/TemplateRetrieval/Sample1000'
+    query_path = '/home/yusun/TemplateRetrieval/MATCHINGUNITS/33cf8b1d9c6341f4ada94044eaa1c161_back.jpg'
     index_file_path = 'featureCNN.h5'
-    uniform_size = (64, 64, 3)
+    uniform_size = (224, 224, 3)
 
     # API: get all index
-    gallery_index_path = index.index_images(
-        gallery_database_path=gallery_database_path,
-        index_file=index_file_path,
-        uniform_size=uniform_size)
+    # gallery_index_path = index_images(
+    #     gallery_database_path=gallery_database_path,
+    #     index_file=index_file_path,
+    #     uniform_size=uniform_size)
 
-    result = query_one_cnn_retrieval(
-        query_path=query_path,
-        index_file_path=index_file_path,
-        uniform_size=uniform_size)
+    # result = query_one_cnn_retrieval(
+    #     query_path=query_path,
+    #     index_file_path=index_file_path,
+    #     uniform_size=uniform_size)
 
-    print("one query result:", result)
+    accuracy = retrieval_statistics(gallery_index_path=index_file_path,
+                         truth_record_path="truth.txt",
+                         uniform_size=uniform_size)
 
-    accuracy = retrieval_statistics(
-        gallery_index_path=gallery_index_path,
-        query_dataset_path=gallery_database_path,
-        uniform_size=uniform_size)
+    challenge_accuracy =  challenge_retrieval_statistics(gallery_index_path=index_file_path,
+                         challenging_database_path="./ChallengingCards",
+                         uniform_size=uniform_size)
 
-    print("accuracy statistics:", accuracy)
+    # print("one query result:", result)
+    print("accuracy:", accuracy)
+    print("challenge:", challenge_accuracy)
+
+
